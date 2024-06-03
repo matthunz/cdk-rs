@@ -39,29 +39,38 @@ fn main() {
 }
 
 fn build(example: Option<String>) {
-    let zip = Runtime::new().unwrap().block_on(async move {
-        reqwest::get(
-            "https://github.com/aws/aws-cdk/releases/download/v2.144.0/aws-cdk-2.144.0.zip",
-        )
-        .await
-        .unwrap()
-        .bytes()
-        .await
-        .unwrap()
-    });
-
-    let mut archive = ZipArchive::new(Cursor::new(&zip[..])).unwrap();
-
     let target_dir = "cdk-target";
 
-    let mut tmp_dir = PathBuf::from(target_dir);
-    tmp_dir.push("tmp");
-    archive.extract(&tmp_dir).unwrap();
+    match fs::create_dir(target_dir) {
+        Ok(_) => {
+            let zip = Runtime::new().unwrap().block_on(async move {
+                reqwest::get(
+                    "https://github.com/aws/aws-cdk/releases/download/v2.144.0/aws-cdk-2.144.0.zip",
+                )
+                .await
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap()
+            });
+            let mut archive = ZipArchive::new(Cursor::new(&zip[..])).unwrap();
 
-    tmp_dir.push("js");
-    tmp_dir.push("aws-cdk-lib@2.144.0.jsii.tgz");
+            let mut tmp_dir = PathBuf::from(target_dir);
+            tmp_dir.push("tmp");
+            archive.extract(&tmp_dir).unwrap();
+            tmp_dir.push("js");
+            tmp_dir.push("aws-cdk-lib@2.144.0.jsii.tgz");
 
-    let data = File::open(&tmp_dir).unwrap();
+            let data = File::open(&tmp_dir).unwrap();
+
+            let gz_decoder = GzDecoder::new(data);
+
+            let mut archive = Archive::new(gz_decoder);
+            archive.unpack(target_dir).unwrap();
+        }
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
+        Err(e) => todo!("{:?}", e),
+    }
 
     let mut cargo_cmd = Command::new("cargo");
     cargo_cmd.arg("build");
@@ -72,17 +81,6 @@ fn build(example: Option<String>) {
     }
 
     cargo_cmd.spawn().unwrap().wait().unwrap();
-
-    match fs::create_dir(target_dir) {
-        Ok(_) => {
-            let gz_decoder = GzDecoder::new(data);
-
-            let mut archive = Archive::new(gz_decoder);
-            archive.unpack(target_dir).unwrap();
-        }
-        Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
-        Err(e) => todo!("{:?}", e),
-    }
 
     let mut file_path = PathBuf::from(target_dir);
     file_path.push("worker.js");
@@ -107,15 +105,16 @@ fn build(example: Option<String>) {
         .wait()
         .unwrap();
 
+    // TODO
     let mut p = PathBuf::from("target");
     p.push("debug");
-    p.push("examples");
     p.push("app.exe");
 
     let mut output_path = PathBuf::from(target_dir);
     output_path.push("app.exe");
 
-    fs::copy(p, output_path).unwrap();
+    fs::write(&output_path, "").unwrap();
+    fs::copy(&p, &output_path).unwrap();
 }
 
 fn list() {

@@ -10,7 +10,6 @@ use std::rc::Rc;
 use std::sync::atomic::AtomicU64;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout, Command};
-use tokio::task::JoinHandle;
 
 pub mod ec2;
 
@@ -26,55 +25,19 @@ struct Response {
     json: Value,
 }
 
-struct AppInner {
-    stdin: ChildStdin,
-    stdout: ChildStdout,
-    handle: JoinHandle<()>,
-}
-
 #[derive(Clone)]
 pub struct App {
-    inner: Rc<RefCell<AppInner>>,
     exprs: Rc<RefCell<Vec<String>>>,
 }
 
 impl App {
-    pub async fn new() -> Self {
-        let mut child = Command::new("node")
-            .arg("worker.js")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Failed to start child process");
-
-        let stdin = child.stdin.take().unwrap();
-        let stdout = child.stdout.take().unwrap();
-
-        let handle = tokio::task::spawn(async move {
-            child.wait().await.unwrap();
-        });
-
-        let me = App {
-            inner: Rc::new(RefCell::new(AppInner {
-                stdin,
-                stdout,
-                handle,
-            })),
+    pub fn new() -> Self {
+        Self {
             exprs: Rc::default(),
-        };
-
-        me.request::<i32>(
-            r#"
-                app = new cdk.App();
-                0
-            "#,
-        )
-        .await;
-
-        me
+        }
     }
 
-    pub async fn stack<S: Stack>(&mut self, stack: S) {
+    pub fn stack<S: Stack>(&mut self, stack: S) {
         let mut layer = Layer {
             app: self.clone(),
             stack,
@@ -85,41 +48,56 @@ impl App {
         S::run(&mut layer);
     }
 
-    async fn request<T>(&self, js: &str) -> T
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        let mut me = self.inner.borrow_mut();
-
-        let message = Request { js };
-        let mut bytes = serde_json::to_vec(&message).unwrap();
-        bytes.push(b'\n');
-        me.stdin.write_all(&bytes).await.unwrap();
-
-        let reader = BufReader::new(&mut me.stdout);
-        let mut lines = reader.lines();
-
-        let Ok(Some(line)) = lines.next_line().await else {
-            todo!()
-        };
-
-        let res: Response = serde_json::from_str(&line).unwrap();
-        serde_json::from_value(res.json).unwrap()
-    }
-
     pub async fn run(&mut self) {
-        let exprs = self.exprs.borrow();
+        let mut child = Command::new("node")
+            .arg("worker.js")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to start child process");
 
+        let mut stdin = child.stdin.take().unwrap();
+        let mut stdout = child.stdout.take().unwrap();
+
+        tokio::task::spawn(async move {
+            child.wait().await.unwrap();
+        });
+
+        request::<i32>(
+            r#"
+                app = new cdk.App();
+                0
+            "#,
+            &mut stdin,
+            &mut stdout,
+        )
+        .await;
+
+        let exprs = self.exprs.borrow();
         for expr in &*exprs {
-            self.request::<Value>(expr).await;
+            request::<Value>(expr, &mut stdin, &mut stdout).await;
         }
     }
 }
 
-impl Drop for App {
-    fn drop(&mut self) {
-        self.inner.borrow_mut().handle.abort();
-    }
+async fn request<T>(js: &str, stdin: &mut ChildStdin, stdout: &mut ChildStdout) -> T
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let message = Request { js };
+    let mut bytes = serde_json::to_vec(&message).unwrap();
+    bytes.push(b'\n');
+    stdin.write_all(&bytes).await.unwrap();
+
+    let reader = BufReader::new(stdout);
+    let mut lines = reader.lines();
+
+    let Ok(Some(line)) = lines.next_line().await else {
+        todo!()
+    };
+
+    let res: Response = serde_json::from_str(&line).unwrap();
+    serde_json::from_value(res.json).unwrap()
 }
 
 pub trait Stack: Sized {
