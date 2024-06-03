@@ -61,7 +61,7 @@ impl App {
     pub async fn stack(&mut self, mut stack: impl Stack) {
         StackContext::set(StackContext::default());
 
-        stack.stack(self);
+        stack.stack(self).await;
 
         let cx = StackContext::get();
         let exprs = cx.exprs.concat();

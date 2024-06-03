@@ -15,3 +15,8 @@ async fn main() {
     app.stack(HelloStack).await;
 }
 ```
+
+```
+cargo cdk build
+cargo cdk ls
+```
