@@ -43,6 +43,8 @@ fn build(example: Option<String>) {
 
     match fs::create_dir(target_dir) {
         Ok(_) => {
+            println!("Downloading latest AWS CDK library...");
+
             let zip = Runtime::new().unwrap().block_on(async move {
                 reqwest::get(
                     "https://github.com/aws/aws-cdk/releases/download/v2.144.0/aws-cdk-2.144.0.zip",
@@ -55,6 +57,8 @@ fn build(example: Option<String>) {
             });
             let mut archive = ZipArchive::new(Cursor::new(&zip[..])).unwrap();
 
+            println!("Extracting AWS CDK library...");
+
             let mut tmp_dir = PathBuf::from(target_dir);
             tmp_dir.push("tmp");
             archive.extract(&tmp_dir).unwrap();
@@ -62,7 +66,6 @@ fn build(example: Option<String>) {
             tmp_dir.push("aws-cdk-lib@2.144.0.jsii.tgz");
 
             let data = File::open(&tmp_dir).unwrap();
-
             let gz_decoder = GzDecoder::new(data);
 
             let mut archive = Archive::new(gz_decoder);
@@ -81,6 +84,8 @@ fn build(example: Option<String>) {
     }
 
     cargo_cmd.spawn().unwrap().wait().unwrap();
+
+    println!("Copying template files...");
 
     let mut file_path = PathBuf::from(target_dir);
     file_path.push("worker.js");
