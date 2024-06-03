@@ -4,7 +4,9 @@ use serde_json::Value;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::future::Future;
+use std::ops::Deref;
 use std::process::Stdio;
+use std::rc::Rc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout, Command};
 use tokio::task::JoinHandle;
@@ -21,10 +23,16 @@ struct Response {
     json: Value,
 }
 
-pub struct App {
+struct AppInner {
     stdin: ChildStdin,
     stdout: ChildStdout,
     handle: JoinHandle<()>,
+}
+
+#[derive(Clone)]
+pub struct App {
+    inner: Rc<RefCell<AppInner>>,
+    exprs: Rc<RefCell<Vec<String>>>,
 }
 
 impl App {
@@ -44,9 +52,12 @@ impl App {
         });
 
         let mut me = App {
-            stdin,
-            stdout,
-            handle,
+            inner: Rc::new(RefCell::new(AppInner {
+                stdin,
+                stdout,
+                handle,
+            })),
+            exprs: Rc::default(),
         };
         me.request::<i32>(
             r#"
@@ -58,14 +69,98 @@ impl App {
         me
     }
 
-    pub async fn stack(&mut self, mut stack: impl Stack) {
-        StackContext::set(StackContext::default());
+    pub async fn stack<S: Stack>(&mut self, stack: S) {
+        let mut layer = Layer {
+            app: self.clone(),
+            stack,
+            exprs: Rc::default(),
+            parent_exprs: self.exprs.clone(),
+        };
+        S::run(&mut layer);
+    }
 
-        stack.stack(self).await;
+    async fn request<T>(&self, js: &str) -> T
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let mut me = self.inner.borrow_mut();
 
-        let cx = StackContext::get();
-        let exprs = cx.exprs.concat();
-        let js = &format!(
+        let message = Request { js };
+        let mut bytes = serde_json::to_vec(&message).unwrap();
+        bytes.push(b'\n');
+        me.stdin.write_all(&bytes).await.unwrap();
+
+        let reader = BufReader::new(&mut me.stdout);
+        let mut lines = reader.lines();
+
+        let Ok(Some(line)) = lines.next_line().await else {
+            todo!()
+        };
+
+        let res: Response = serde_json::from_str(&line).unwrap();
+        serde_json::from_value(res.json).unwrap()
+    }
+
+    pub async fn run(&mut self) {
+        let exprs = self.exprs.borrow();
+
+        for expr in &*exprs {
+            self.request::<Value>(expr).await;
+        }
+    }
+}
+
+impl Drop for App {
+    fn drop(&mut self) {
+        self.inner.borrow_mut().handle.abort();
+    }
+}
+
+pub trait Stack: Sized + 'static {
+    fn run(me: &mut Layer<Self>);
+
+    fn name(&self) -> Cow<'static, str> {
+        let type_name = std::any::type_name::<Self>();
+        Cow::Borrowed(
+            type_name
+                .split('<')
+                .next()
+                .unwrap_or(type_name)
+                .split("::")
+                .last()
+                .unwrap_or(type_name),
+        )
+    }
+
+    fn stack<T: Stack>(self, layer: &Layer<T>) -> Layer<Self> {
+        Layer {
+            app: layer.app.clone(),
+            stack: self,
+            exprs: Rc::default(),
+            parent_exprs: layer.exprs.clone(),
+        }
+    }
+}
+
+pub struct Layer<T: Stack> {
+    app: App,
+    stack: T,
+    exprs: Rc<RefCell<Vec<String>>>,
+    parent_exprs: Rc<RefCell<Vec<String>>>,
+}
+
+impl<T: Stack> Deref for Layer<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        todo!()
+    }
+}
+
+impl<T: Stack> Drop for Layer<T> {
+    fn drop(&mut self) {
+        let exprs = self.exprs.borrow().concat();
+        let js = format!(
             r#"
                 class RustStack extends cdk.Stack {{
                     constructor(scope, id, props) {{
@@ -79,80 +174,8 @@ impl App {
                 0
             "#,
             exprs,
-            stack.name()
+            self.stack.name()
         );
-        self.request::<Value>(js).await;
-    }
-
-    async fn request<T>(&mut self, js: &str) -> T
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        let message = Request { js };
-        let mut bytes = serde_json::to_vec(&message).unwrap();
-        bytes.push(b'\n');
-        self.stdin.write_all(&bytes).await.unwrap();
-
-        let reader = BufReader::new(&mut self.stdout);
-        let mut lines = reader.lines();
-
-        let Ok(Some(line)) = lines.next_line().await else {
-            todo!()
-        };
-
-        let res: Response = serde_json::from_str(&line).unwrap();
-        serde_json::from_value(res.json).unwrap()
-    }
-}
-
-impl Drop for App {
-    fn drop(&mut self) {
-        self.handle.abort();
-    }
-}
-
-thread_local! {
-    static STACK_CONTEXT: RefCell<Option<StackContext>> = RefCell::new(None);
-}
-
-#[derive(Default)]
-struct StackContext {
-    exprs: Vec<Cow<'static, str>>,
-}
-
-impl StackContext {
-    fn set(self) {
-        STACK_CONTEXT
-            .try_with(|cx| *cx.borrow_mut() = Some(self))
-            .unwrap();
-    }
-
-    fn get() -> Self {
-        STACK_CONTEXT
-            .try_with(|cx| cx.borrow_mut().take().unwrap())
-            .unwrap()
-    }
-
-    fn push(expr: impl Into<Cow<'static, str>>) {
-        STACK_CONTEXT
-            .try_with(|cx| cx.borrow_mut().as_mut().unwrap().exprs.push(expr.into()))
-            .unwrap();
-    }
-}
-
-pub trait Stack: 'static {
-    fn stack(&mut self, app: &mut App) -> impl Future<Output = ()> + Send;
-
-    fn name(&self) -> Cow<'static, str> {
-        let type_name = std::any::type_name::<Self>();
-        Cow::Borrowed(
-            type_name
-                .split('<')
-                .next()
-                .unwrap_or(type_name)
-                .split("::")
-                .last()
-                .unwrap_or(type_name),
-        )
+        self.parent_exprs.borrow_mut().push(js)
     }
 }
