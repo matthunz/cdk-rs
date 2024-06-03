@@ -1,3 +1,7 @@
+# cdk-rs
+
+Rust support for the [AWS Cloud Development Kit (CDK)](https://aws.amazon.com/cdk/)
+
 ```rust
 use cdk::{s3, App, Stack};
 
