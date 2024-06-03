@@ -9,7 +9,7 @@
 (WIP) Rust support for the [AWS Cloud Development Kit (CDK)](https://aws.amazon.com/cdk/).
 
 ```rust
-use cdk::{ec2, s3, App, Layer, Stack};
+use cdk_builder::{ec2, s3, App, Layer, Stack};
 
 struct HelloStack;
 
@@ -37,8 +37,8 @@ impl Stack for HelloStack {
 
 #[tokio::main]
 async fn main() {
-    let mut app = App::new().await;
-    app.stack(HelloStack).await;
+    let mut app = App::new();
+    app.stack(HelloStack);
     app.run().await;
 }
 ```
