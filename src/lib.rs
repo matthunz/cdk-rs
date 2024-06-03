@@ -1,20 +1,12 @@
-use flate2::read::GzDecoder;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::future::Future;
-use std::io::Cursor;
-use std::io::ErrorKind;
-use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::{Arc, LazyLock};
-use tar::Archive;
-use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout, Command};
-use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 pub mod s3;
@@ -90,7 +82,6 @@ impl App {
             stack.name()
         );
         self.request::<Value>(js).await;
-
     }
 
     async fn request<T>(&mut self, js: &str) -> T
@@ -108,7 +99,6 @@ impl App {
         let Ok(Some(line)) = lines.next_line().await else {
             todo!()
         };
-
 
         let res: Response = serde_json::from_str(&line).unwrap();
         serde_json::from_value(res.json).unwrap()
@@ -149,7 +139,6 @@ impl StackContext {
             .unwrap();
     }
 }
-
 
 pub trait Stack: 'static {
     fn stack(&mut self, app: &mut App) -> impl Future<Output = ()> + Send;

@@ -3,9 +3,14 @@ name = "cdk"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "cargo-cdk"
+path = "src/main.rs"
+
 [dependencies]
 tar = "0.4"
 flate2 = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.38.0", features = ["full"] }
+clap = { version = "4.5.4", features = ["derive"] }

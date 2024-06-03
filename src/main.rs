@@ -1,24 +1,55 @@
+use clap::Parser;
+use clap::Subcommand;
 use flate2::read::GzDecoder;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use std::env::current_dir;
+use std::fs;
 use std::io::Cursor;
 use std::io::ErrorKind;
 use std::path::PathBuf;
-use std::process::Stdio;
-use std::sync::{Arc, LazyLock};
+use std::process::Command;
 use tar::Archive;
-use tokio::fs;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{ChildStdin, ChildStdout, Command};
-use tokio::sync::Mutex;
 
-#[tokio::main]
-async fn main() {
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    Build {
+        #[arg(long)]
+        example: Option<String>,
+    },
+    #[command(name = "ls")]
+    List,
+}
+
+fn main() {
+    let args = Args::parse();
+
+    match args.command {
+        Commands::Build { example } => build(example),
+        Commands::List => list(),
+    }
+}
+
+fn build(example: Option<String>) {
     let data = include_bytes!("../assets/aws-cdk-lib-2.144.0.tgz");
     let target_dir = "cdk-target";
 
-    match fs::create_dir(target_dir).await {
+    let mut cargo_cmd = Command::new("cargo");
+    cargo_cmd.arg("build");
+
+    if let Some(ref example) = example {
+        cargo_cmd.arg("--example");
+        cargo_cmd.arg(example);
+    }
+
+    cargo_cmd.spawn().unwrap().wait().unwrap();
+
+    match fs::create_dir(target_dir) {
         Ok(_) => {
             let cursor = Cursor::new(data);
             let gz_decoder = GzDecoder::new(cursor);
@@ -33,17 +64,17 @@ async fn main() {
     let mut file_path = PathBuf::from(target_dir);
     file_path.push("worker.js");
     let worker_js = include_str!("../worker.js");
-    fs::write(&file_path, worker_js).await.unwrap();
+    fs::write(&file_path, worker_js).unwrap();
 
     let mut file_path = PathBuf::from(target_dir);
     file_path.push("package.json");
     let package_json = include_str!("../package.json");
-    fs::write(&file_path, package_json).await.unwrap();
+    fs::write(&file_path, package_json).unwrap();
 
     let mut file_path = PathBuf::from(target_dir);
     file_path.push("cdk.json");
     let package_json = include_str!("../cdk.json");
-    fs::write(&file_path, package_json).await.unwrap();
+    fs::write(&file_path, package_json).unwrap();
 
     Command::new("npm.cmd")
         .arg("install")
@@ -51,7 +82,6 @@ async fn main() {
         .spawn()
         .unwrap()
         .wait()
-        .await
         .unwrap();
 
     let mut p = PathBuf::from("target");
@@ -61,6 +91,21 @@ async fn main() {
 
     let mut output_path = PathBuf::from(target_dir);
     output_path.push("app.exe");
-    
-    fs::copy(p, output_path).await.unwrap();
+
+    fs::copy(p, output_path).unwrap();
+}
+
+fn list() {
+    let mut path = current_dir().unwrap();
+    path.push("cdk-target");
+
+    Command::new("npm.cmd")
+        .arg("run")
+        .arg("cdk")
+        .arg("ls")
+        .current_dir(&path)
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
 }
