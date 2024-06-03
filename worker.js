@@ -1,5 +1,6 @@
 const cdk = require("aws-cdk-lib");
 const s3 = require("aws-cdk-lib/aws-s3");
+const ec2 = require("aws-cdk-lib/aws-ec2");
 
 const readline = require("readline");
 

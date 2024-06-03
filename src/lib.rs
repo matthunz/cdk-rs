@@ -11,6 +11,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout, Command};
 use tokio::task::JoinHandle;
 
+pub mod ec2;
+
 pub mod s3;
 
 #[derive(Serialize)]
