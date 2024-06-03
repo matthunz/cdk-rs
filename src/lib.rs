@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ops::Deref;
+use std::ops::DerefMut;
 use std::process::Stdio;
 use std::rc::Rc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -133,6 +134,27 @@ pub trait Stack: Sized + 'static {
         )
     }
 
+    fn initialize(me: &mut Layer<Self>) {
+        let exprs = me.exprs.borrow().concat();
+        let js = format!(
+            r#"
+                class RustStack extends cdk.Stack {{
+                    constructor(scope, id, props) {{
+                        super(scope, id, props);
+                        {}
+                    }}
+                }}
+
+                new RustStack(app, '{}', {{}});
+
+                0
+            "#,
+            exprs,
+            me.stack.name()
+        );
+        me.parent_exprs.borrow_mut().push(js)
+    }
+
     fn stack<T: Stack>(self, layer: &Layer<T>) -> Layer<Self> {
         Layer {
             app: layer.app.clone(),
@@ -154,29 +176,20 @@ impl<T: Stack> Deref for Layer<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        todo!()
+        &self.stack
+    }
+}
+
+impl<T: Stack> DerefMut for Layer<T> {
+  
+
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.stack
     }
 }
 
 impl<T: Stack> Drop for Layer<T> {
     fn drop(&mut self) {
-        let exprs = self.exprs.borrow().concat();
-        let js = format!(
-            r#"
-                class RustStack extends cdk.Stack {{
-                    constructor(scope, id, props) {{
-                        super(scope, id, props);
-                        {}
-                    }}
-                }}
-
-                new RustStack(app, '{}', {{}});
-
-                0
-            "#,
-            exprs,
-            self.stack.name()
-        );
-        self.parent_exprs.borrow_mut().push(js)
+        T::initialize(self)
     }
 }
