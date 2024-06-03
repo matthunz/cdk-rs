@@ -7,6 +7,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::process::Stdio;
 use std::rc::Rc;
+use std::sync::atomic::AtomicU64;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout, Command};
 use tokio::task::JoinHandle;
@@ -79,6 +80,7 @@ impl App {
             stack,
             exprs: Rc::default(),
             parent_exprs: self.exprs.clone(),
+            expr: None,
         };
         S::run(&mut layer);
     }
@@ -136,6 +138,8 @@ pub trait Stack: Sized {
         )
     }
 
+    fn setup(me: &mut Layer<Self>) {}
+
     fn initialize(me: &mut Layer<Self>) {
         let exprs = me.exprs.borrow().concat();
         let js = format!(
@@ -158,12 +162,15 @@ pub trait Stack: Sized {
     }
 
     fn stack<T: Stack>(self, layer: &Layer<T>) -> Layer<Self> {
-        Layer {
+        let mut layer = Layer {
             app: layer.app.clone(),
             stack: self,
             exprs: Rc::default(),
             parent_exprs: layer.exprs.clone(),
-        }
+            expr: None,
+        };
+        Self::setup(&mut layer);
+        layer
     }
 }
 
@@ -171,6 +178,7 @@ pub struct Layer<T: Stack> {
     app: App,
     stack: T,
     exprs: Rc<RefCell<Vec<String>>>,
+    expr: Option<String>,
     parent_exprs: Rc<RefCell<Vec<String>>>,
 }
 
@@ -193,3 +201,5 @@ impl<T: Stack> Drop for Layer<T> {
         T::initialize(self)
     }
 }
+
+static COUNT: AtomicU64 = AtomicU64::new(0);

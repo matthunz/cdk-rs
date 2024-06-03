@@ -11,6 +11,7 @@ const rl = readline.createInterface({
 });
 
 var app;
+var stacks = {};
 
 rl.on("line", (line) => {
   try {

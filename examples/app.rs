@@ -15,6 +15,12 @@ impl Stack for HelloStack {
             max_azs: 3,
         }
         .stack(me);
+
+        ec2::Instance {
+            name: "HelloInstance",
+            vpc: &vpc,
+        }
+        .stack(me);
     }
 }
 
