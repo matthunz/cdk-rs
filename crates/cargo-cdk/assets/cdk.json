@@ -1,5 +1,5 @@
 {
-  "app": "app.exe",
+  "app": "cargo run",
   "watch": {
     "include": [
       "**"

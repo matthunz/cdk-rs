@@ -104,17 +104,6 @@ fn build(example: Option<String>) {
         .unwrap()
         .wait()
         .unwrap();
-
-    // TODO
-    let mut p = PathBuf::from("target");
-    p.push("debug");
-    p.push("app.exe");
-
-    let mut output_path = PathBuf::from(target_dir);
-    output_path.push("app.exe");
-
-    fs::write(&output_path, "").unwrap();
-    fs::copy(&p, &output_path).unwrap();
 }
 
 fn list() {
