@@ -1,6 +1,12 @@
 # cdk-rs
 
-Rust support for the [AWS Cloud Development Kit (CDK)](https://aws.amazon.com/cdk/)
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/matthunz/cdk-rs#license)
+[![Crates.io](https://img.shields.io/crates/v/cargo-cdk.svg)](https://crates.io/crates/cargo-cdk)
+[![Crates.io](https://img.shields.io/crates/v/cdk-builder.svg)](https://crates.io/crates/cdk-builder)
+[![Docs](https://docs.rs/cdk-builder/badge.svg)](https://docs.rs/cdk-builder/latest/cdk-builder/)
+[![CI](https://github.com/matthunz/cdk-rs/workflows/Rust/badge.svg)](https://github.com/matthunz/cdk-rs/actions)
+
+(WIP) Rust support for the [AWS Cloud Development Kit (CDK)](https://aws.amazon.com/cdk/).
 
 ```rust
 use cdk::{ec2, s3, App, Layer, Stack};
@@ -35,6 +41,12 @@ async fn main() {
     app.stack(HelloStack).await;
     app.run().await;
 }
+```
+
+## Installation
+
+```
+cargo install cargo-cdk
 ```
 
 ```
