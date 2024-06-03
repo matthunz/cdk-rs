@@ -1,3 +1,4 @@
+```rust
 use cdk::{s3, App, Stack};
 
 struct HelloStack;
@@ -13,3 +14,4 @@ async fn main() {
     let mut app = App::new().await;
     app.stack(HelloStack).await;
 }
+```
