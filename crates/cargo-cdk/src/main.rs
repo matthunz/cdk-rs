@@ -86,17 +86,17 @@ fn build(example: Option<String>) {
 
     let mut file_path = PathBuf::from(target_dir);
     file_path.push("worker.js");
-    let worker_js = include_str!("../worker.js");
+    let worker_js = include_str!("../assets/worker.js");
     fs::write(&file_path, worker_js).unwrap();
 
     let mut file_path = PathBuf::from(target_dir);
     file_path.push("package.json");
-    let package_json = include_str!("../package.json");
+    let package_json = include_str!("../assets/package.json");
     fs::write(&file_path, package_json).unwrap();
 
     let mut file_path = PathBuf::from(target_dir);
     file_path.push("cdk.json");
-    let package_json = include_str!("../cdk.json");
+    let package_json = include_str!("../assets/cdk.json");
     fs::write(&file_path, package_json).unwrap();
 
     Command::new("npm.cmd")

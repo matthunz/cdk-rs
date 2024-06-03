@@ -138,7 +138,9 @@ pub trait Stack: Sized {
         )
     }
 
-    fn setup(me: &mut Layer<Self>) {}
+    fn setup(me: &mut Layer<Self>) {
+        let _ = me;
+    }
 
     fn initialize(me: &mut Layer<Self>) {
         let exprs = me.exprs.borrow().concat();
