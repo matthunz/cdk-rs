@@ -1,5 +1,5 @@
-const cdk = require('./package');
-
+const cdk = require('aws-cdk-lib');
+const s3 = require('aws-cdk-lib/aws-s3');
 
 const readline = require('readline');
 
@@ -10,6 +10,8 @@ const rl = readline.createInterface({
 });
 
 rl.on('line', (line) => {
+    var app;
+
     try {
         const message = JSON.parse(line);
         const response = { json: eval(message.js) };
