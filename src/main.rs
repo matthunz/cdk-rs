@@ -3,11 +3,14 @@ use clap::Subcommand;
 use flate2::read::GzDecoder;
 use std::env::current_dir;
 use std::fs;
+use std::fs::File;
 use std::io::Cursor;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::process::Command;
 use tar::Archive;
+use tokio::runtime::Runtime;
+use zip::ZipArchive;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -36,8 +39,29 @@ fn main() {
 }
 
 fn build(example: Option<String>) {
-    let data = include_bytes!("../assets/aws-cdk-lib-2.144.0.tgz");
+    let zip = Runtime::new().unwrap().block_on(async move {
+        reqwest::get(
+            "https://github.com/aws/aws-cdk/releases/download/v2.144.0/aws-cdk-2.144.0.zip",
+        )
+        .await
+        .unwrap()
+        .bytes()
+        .await
+        .unwrap()
+    });
+
+    let mut archive = ZipArchive::new(Cursor::new(&zip[..])).unwrap();
+
     let target_dir = "cdk-target";
+
+    let mut tmp_dir = PathBuf::from(target_dir);
+    tmp_dir.push("tmp");
+    archive.extract(&tmp_dir).unwrap();
+
+    tmp_dir.push("js");
+    tmp_dir.push("aws-cdk-lib@2.144.0.jsii.tgz");
+
+    let data = File::open(&tmp_dir).unwrap();
 
     let mut cargo_cmd = Command::new("cargo");
     cargo_cmd.arg("build");
@@ -51,8 +75,7 @@ fn build(example: Option<String>) {
 
     match fs::create_dir(target_dir) {
         Ok(_) => {
-            let cursor = Cursor::new(data);
-            let gz_decoder = GzDecoder::new(cursor);
+            let gz_decoder = GzDecoder::new(data);
 
             let mut archive = Archive::new(gz_decoder);
             archive.unpack(target_dir).unwrap();
