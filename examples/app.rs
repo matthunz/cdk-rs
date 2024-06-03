@@ -4,7 +4,7 @@ struct HelloStack;
 
 impl Stack for HelloStack {
     fn run(me: &mut Layer<Self>) {
-        s3::Bucket::new("name").stack(me);
+        s3::Bucket::new("HelloBucket").stack(me);
     }
 }
 

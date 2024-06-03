@@ -3,13 +3,13 @@
 Rust support for the [AWS Cloud Development Kit (CDK)](https://aws.amazon.com/cdk/)
 
 ```rust
-use cdk::{s3, App, Stack};
+use cdk::{s3, App, Layer, Stack};
 
 struct HelloStack;
 
 impl Stack for HelloStack {
-    async fn stack(&mut self, _app: &mut App) {
-        s3::Bucket::new("HelloBucket");
+    fn run(me: &mut Layer<Self>) {
+        s3::Bucket::new("HelloBucket").stack(me);
     }
 }
 
@@ -17,6 +17,7 @@ impl Stack for HelloStack {
 async fn main() {
     let mut app = App::new().await;
     app.stack(HelloStack).await;
+    app.run().await;
 }
 ```
 

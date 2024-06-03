@@ -1,4 +1,4 @@
-use crate::Stack;
+use crate::{Layer, Stack};
 
 pub struct Bucket {
     name: String,
@@ -11,7 +11,7 @@ impl Bucket {
 }
 
 impl Stack for Bucket {
-    fn run(me: &mut crate::Layer<Self>) {
+    fn run(me: &mut Layer<Self>) {
         me.exprs.borrow_mut().push(format!(
             r#"
                 new s3.Bucket(this, '{}', {{

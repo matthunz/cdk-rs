@@ -3,7 +3,6 @@ use serde::Serialize;
 use serde_json::Value;
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::future::Future;
 use std::ops::Deref;
 use std::process::Stdio;
 use std::rc::Rc;
@@ -51,7 +50,7 @@ impl App {
             child.wait().await.unwrap();
         });
 
-        let mut me = App {
+        let me = App {
             inner: Rc::new(RefCell::new(AppInner {
                 stdin,
                 stdout,
@@ -59,6 +58,7 @@ impl App {
             })),
             exprs: Rc::default(),
         };
+
         me.request::<i32>(
             r#"
                 app = new cdk.App();
@@ -66,6 +66,7 @@ impl App {
             "#,
         )
         .await;
+
         me
     }
 
