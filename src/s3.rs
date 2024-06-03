@@ -1,27 +1,22 @@
 use crate::{Layer, Stack};
-use std::borrow::Cow;
 
-pub struct Bucket {
-    name: Cow<'static, str>,
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Bucket<'a> {
+    pub name: &'a str,
+    pub versioned: bool,
 }
 
-impl Bucket {
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
-        Self { name: name.into() }
-    }
-}
-
-impl Stack for Bucket {
+impl Stack for Bucket<'_> {
     fn run(_me: &mut Layer<Self>) {}
 
     fn initialize(me: &mut Layer<Self>) {
         me.parent_exprs.borrow_mut().push(format!(
             r#"
                 new s3.Bucket(this, '{}', {{
-                    versioned: true
+                    versioned: {}
                 }});
             "#,
-            &me.name
+            &me.name, me.versioned
         ));
     }
 }

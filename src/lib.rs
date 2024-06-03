@@ -118,7 +118,7 @@ impl Drop for App {
     }
 }
 
-pub trait Stack: Sized + 'static {
+pub trait Stack: Sized {
     fn run(me: &mut Layer<Self>);
 
     fn name(&self) -> Cow<'static, str> {
@@ -181,8 +181,6 @@ impl<T: Stack> Deref for Layer<T> {
 }
 
 impl<T: Stack> DerefMut for Layer<T> {
-  
-
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.stack
     }
