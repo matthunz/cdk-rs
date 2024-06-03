@@ -6,7 +6,7 @@
 [![Docs](https://docs.rs/cdk-builder/badge.svg)](https://docs.rs/cdk-builder/latest/cdk-builder/)
 [![CI](https://github.com/matthunz/cdk-rs/workflows/Rust/badge.svg)](https://github.com/matthunz/cdk-rs/actions)
 
-Rust support for the [AWS Cloud Development Kit (CDK)](https://aws.amazon.com/cdk/).
+(WIP) Rust support for the [AWS Cloud Development Kit (CDK)](https://aws.amazon.com/cdk/).
 
 ```rust
 use cdk::{ec2, s3, App, Layer, Stack};
